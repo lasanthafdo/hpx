@@ -1,0 +1,179 @@
+#  Copyright (c) 2018 Thomas Heller
+#
+#  Distributed under the Boost Software License, Version 1.0. (See accompanying
+#  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+
+stages:
+    - checkout
+    - configure
+    - clang_tidy
+    - inspect
+    - docs
+    - core
+    - test
+
+variables:
+    GIT_STRATEGY: fetch
+    GIT_DEPTH: "3"
+
+checkout:
+    image: stellargroup/build_env:ubuntu
+    variables:
+        GIT_STRATEGY: fetch
+        GIT_CHECKOUT: "true"
+    stage: checkout
+    script:
+        - env
+        - pwd
+#        - curl \
+#          https://raw.githubusercontent.com/Kitware/CDash/master/tests/circle/conv.xsl \
+#          -o /hpx/conv.xsl
+
+configure:debug:
+    image: stellargroup/build_env:ubuntu
+    stage: configure
+    script:
+        - mkdir -p build/debug
+        - cd build/debug
+        - cmake ../.. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DHPX_WITH_MALLOC=system -DHPX_WITH_TOOLS=On -DCMAKE_CXX_FLAGS="-fcolor-diagnostics" -DHPX_WITH_TESTS_HEADERS=On -DHPX_WITH_DEPRECATION_WARNINGS=Off -DHPX_WITH_THREAD_LOCAL_STORAGE=On -DCMAKE_EXPORT_COMPILE_COMMANDS=On -DHPX_WITH_DOCUMENTATION=On
+    dependencies:
+        - checkout
+    artifacts:
+        paths:
+            - build/debug
+
+core:debug:
+    image: stellargroup/build_env:ubuntu
+    stage: core
+    script:
+        - cd build/debug
+        - ninja core
+    artifacts:
+        paths:
+            - build/debug
+    dependencies:
+        - configure:debug
+
+tests:debug:examples:
+    image: stellargroup/build_env:ubuntu
+    stage: test
+    script:
+        - cd build/debug
+        - ninja examples
+        - ctest -T test --no-compress-output --output-on-failure -R tests.examples
+    dependencies:
+        - core:debug
+
+tests:debug:unit:
+    image: stellargroup/build_env:ubuntu
+    stage: test
+    script:
+        - cd build/debug
+        - ninja tests.unit
+        - ctest -T test --no-compress-output --output-on-failure -R tests.unit
+    dependencies:
+        - core:debug
+
+tests:debug:regressions:
+    image: stellargroup/build_env:ubuntu
+    stage: test
+    script:
+        - cd build/debug
+        - ninja tests.regressions
+        - ctest -T test --no-compress-output --output-on-failure -R tests.regressions
+    dependencies:
+        - core:debug
+
+tests:debug:headers:
+    image: stellargroup/build_env:ubuntu
+    stage: test
+    script:
+        - cd build/debug
+        - ninja tests.headers
+        - ctest -T test --no-compress-output --output-on-failure -R tests.headers
+    dependencies:
+        - core:debug
+
+tests:debug:performance:
+    image: stellargroup/build_env:ubuntu
+    stage: test
+    script:
+        - cd build/debug
+        - ninja tests.performance
+        - ctest -T test --no-compress-output --output-on-failure -R tests.performance
+    dependencies:
+        - core:debug
+
+configure:release:
+    image: stellargroup/build_env:ubuntu
+    stage: configure
+    script:
+        - mkdir -p build/release
+        - cd build/release
+        - cmake ../.. -G "Ninja" -DCMAKE_BUILD_TYPE=Debug -DHPX_WITH_MALLOC=system -DHPX_WITH_TOOLS=On -DCMAKE_CXX_FLAGS="-fcolor-diagnostics" -DHPX_WITH_TESTS_HEADERS=On -DHPX_WITH_DEPRECATION_WARNINGS=Off -DHPX_WITH_THREAD_LOCAL_STORAGE=On -DCMAKE_EXPORT_COMPILE_COMMANDS=On -DHPX_WITH_DOCUMENTATION=On
+    dependencies:
+        - checkout
+    artifacts:
+        paths:
+            - build/release
+
+core:release:
+    image: stellargroup/build_env:ubuntu
+    stage: core
+    script:
+        - cd build/release
+        - ninja core
+    dependencies:
+        - configure:release
+
+
+tests:release:examples:
+    image: stellargroup/build_env:ubuntu
+    stage: test
+    script:
+        - cd build/release
+        - ninja examples
+        - ctest -T test --no-compress-output --output-on-failure -R tests.examples
+    dependencies:
+        - core:release
+
+tests:release:unit:
+    image: stellargroup/build_env:ubuntu
+    stage: test
+    script:
+        - cd build/release
+        - ninja tests.unit
+        - ctest -T test --no-compress-output --output-on-failure -R tests.unit
+    dependencies:
+        - core:release
+
+tests:release:regressions:
+    image: stellargroup/build_env:ubuntu
+    stage: test
+    script:
+        - cd build/release
+        - ninja tests.regressions
+        - ctest -T test --no-compress-output --output-on-failure -R tests.regressions
+    dependencies:
+        - core:release
+
+tests:release:headers:
+    image: stellargroup/build_env:ubuntu
+    stage: test
+    script:
+        - cd build/release
+        - ninja tests.headers
+        - ctest -T test --no-compress-output --output-on-failure -R tests.headers
+    dependencies:
+        - core:release
+
+tests:release:performance:
+    image: stellargroup/build_env:ubuntu
+    stage: test
+    script:
+        - cd build/release
+        - ninja tests.performance
+        - ctest -T test --no-compress-output --output-on-failure -R tests.performance
+    dependencies:
+        - core:release
+
